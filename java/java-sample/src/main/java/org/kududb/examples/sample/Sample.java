@@ -12,56 +12,47 @@ public class Sample {
 
   private static final String KUDU_MASTER = System.getProperty(
       "kuduMaster", "quickstart.cloudera");
+  private static final String TABLE = System.getProperty(
+      "tableName", "flume-test");
+  private static final String OP = System.getProperty(
+      "operation", "create");
 
   public static void main(String[] args) {
-    System.out.println("-----------------------------------------------");
+    System.out.println("-------------------------------------");
     System.out.println("Will try to connect to Kudu master at " + KUDU_MASTER);
-    System.out.println("Run with -DkuduMaster=myHost:port to override.");
-    System.out.println("-----------------------------------------------");
-    String tableName = "java_sample-" + System.currentTimeMillis();
+    System.out.println("to " + OP + " '" + TABLE + "' table.");
+    System.out.println("Run with -DkuduMaster=myHost:port -DtableName=givenTableName -Doperation=<create/drop> to override.");
+    System.out.println("-------------------------------------");
+
     KuduClient client = new KuduClient.KuduClientBuilder(KUDU_MASTER).build();
 
-    try {
-      List<ColumnSchema> columns = new ArrayList(2);
-      columns.add(new ColumnSchema.ColumnSchemaBuilder("key", Type.INT32)
-          .key(true)
-          .build());
-      columns.add(new ColumnSchema.ColumnSchemaBuilder("value", Type.STRING)
-          .build());
-      List<String> rangeKeys = new ArrayList<>();
-      rangeKeys.add("key");
-
-      Schema schema = new Schema(columns);
-      client.createTable(tableName, schema,
-                         new CreateTableOptions().setRangePartitionColumns(rangeKeys));
-
-      KuduTable table = client.openTable(tableName);
-      KuduSession session = client.newSession();
-      for (int i = 0; i < 3; i++) {
-        Insert insert = table.newInsert();
-        PartialRow row = insert.getRow();
-        row.addInt(0, i);
-        row.addString(1, "value " + i);
-        session.apply(insert);
-      }
-
-      List<String> projectColumns = new ArrayList<>(1);
-      projectColumns.add("value");
-      KuduScanner scanner = client.newScannerBuilder(table)
-          .setProjectedColumnNames(projectColumns)
-          .build();
-      while (scanner.hasMoreRows()) {
-        RowResultIterator results = scanner.nextRows();
-        while (results.hasNext()) {
-          RowResult result = results.next();
-          System.out.println(result.getString(0));
-        }
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
-    } finally {
+    if (OP.matches("create")) {
       try {
-        client.deleteTable(tableName);
+        List<ColumnSchema> columns = new ArrayList(2);
+	columns.add(new ColumnSchema.ColumnSchemaBuilder("payload", Type.BINARY)
+		    .key(true)
+		    .build());
+	columns.add(new ColumnSchema.ColumnSchemaBuilder("value", Type.STRING)
+		    .nullable(true)
+		    .build());
+	List<String> rangeKeys = new ArrayList<>();
+	rangeKeys.add("payload");
+	
+	Schema schema = new Schema(columns);
+	client.createTable(TABLE, schema,
+			   new CreateTableOptions().setRangePartitionColumns(rangeKeys));
+	} catch (Exception e) {
+	  e.printStackTrace();
+      } finally {
+	  try {
+	      client.shutdown();
+	  } catch (Exception e) {
+	      e.printStackTrace();
+	  }
+      }
+    } else if (OP.matches("drop")) {
+      try {
+        client.deleteTable(TABLE);
       } catch (Exception e) {
         e.printStackTrace();
       } finally {
@@ -69,7 +60,7 @@ public class Sample {
           client.shutdown();
         } catch (Exception e) {
           e.printStackTrace();
-        }
+	}
       }
     }
   }
