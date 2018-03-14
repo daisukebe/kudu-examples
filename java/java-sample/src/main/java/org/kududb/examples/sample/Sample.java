@@ -32,9 +32,11 @@ public class Sample {
 	columns.add(new ColumnSchema.ColumnSchemaBuilder("payload", Type.BINARY)
 		    .key(true)
 		    .build());
+	/*
 	columns.add(new ColumnSchema.ColumnSchemaBuilder("value", Type.STRING)
 		    .nullable(true)
 		    .build());
+	*/
 	List<String> rangeKeys = new ArrayList<>();
 	rangeKeys.add("payload");
 	
